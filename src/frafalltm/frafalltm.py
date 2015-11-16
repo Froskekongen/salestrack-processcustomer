@@ -16,6 +16,7 @@ from sklearn import metrics
 from sklearn import preprocessing
 import csv
 import datetime
+import numpy as np
 
 def parse_row(rr,heads):
     predDict={}
