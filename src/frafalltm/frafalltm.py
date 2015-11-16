@@ -76,6 +76,8 @@ def make_avis_dict(aviser,featDictList,churned,abo_lengde):
             continue
         kk='Avis_'+avis
         featDictList2=[feats for feats in featDictList if kk in feats]
+        if len(featDictList2)<50:
+            continue
         churned2=[ch for ch,feats in zip(churned,featDictList) if kk in feats]
         churned2=np.array(churned2)
         abo_lengde2=[ch for ch,feats in zip(abo_lengde,featDictList) if kk in feats]
