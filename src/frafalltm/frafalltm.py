@@ -85,7 +85,8 @@ def make_avis_dict(aviser,featDictList,churned,abo_lengde):
         #print(featDictList2[0])
         featMat=vecFeats(featDictList2)
         print(avis)
-        print(featMat.size,featMat[:,0].size,featMat[0,:].size,churned2.size,abo_lengde2.size)
+        print(featMat[:,0].size,featMat[0,:].size,churned2.size,abo_lengde2.size)
+        print('---------------------------')
         avisDict[avis]=[featMat,churned2,abo_lengde2]
     return avisDict
 
@@ -126,10 +127,10 @@ if __name__ == "__main__":
     avisDict=make_avis_dict(aviser,featDictList,churned,abo_lengde)
     logRegParams={'n_jobs':-1,'class_weight':'balanced','penalty':'l1','C':0.5}
 
-    for avis in avisDict:
+    for avis,val in avisDict.items():
         print('Avis:',avis)
-        featMat=avis[0]
-        churned=avis[1]
+        featMat=val[0]
+        churned=val[1]
         logReg=LogisticRegression(**logRegParams)
         skf = StratifiedKFold(churned, n_folds=4)
         for train_index,test_index in skf:
