@@ -117,12 +117,12 @@ if __name__ == "__main__":
 
     avisDict=make_avis_dict(aviser,featDictList,churned,abo_lengde)
     skf = StratifiedKFold(churned2, n_folds=4)
-    logRegParams=(n_jobs=-1,class_weight='balanced',penalty='l1',C=0.5)
+    logRegParams={n_jobs:-1,class_weight:'balanced',penalty:'l1',C:0.5}
 
     for avis in avisDict:
         featMat=vecFeats(avis[0])
         churned=avis[1]
-        logReg=LogisticRegression(*logRegParams)
+        logReg=LogisticRegression(**logRegParams)
         skf = StratifiedKFold(churned, n_folds=4)
         print(avis)
         for train_index,test_index in skf:
@@ -132,7 +132,7 @@ if __name__ == "__main__":
                 y_pred=logReg.predict(X_test)
                 print(classification_report(y_test,y_pred))
 
-        logReg=LogisticRegression(*logRegParams)
+        logReg=LogisticRegression(**logRegParams)
         X_train, X_test, y_train, y_test = train_test_split(featMat, churned, test_size=.2)
         y_pred=logReg.predict(X_test)
         y_score=logReg.decision_function(X_test)
