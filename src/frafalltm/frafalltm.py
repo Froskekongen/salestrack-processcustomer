@@ -101,7 +101,7 @@ def vecFeats(featDList):
     return mm2,dVec
 
 def getImportantCoeffs(clf,dVec,fun=lambda x:x.coef_[0],topN=7):
-    fnames=vectorizer.get_feature_names()
+    fnames=dVec.get_feature_names()
     featList=fun(clf)
     absCoeffs=np.abs(featList)
     sortedInds=np.argsort(absCoeffs)[::-1][:topN]
