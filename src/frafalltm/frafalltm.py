@@ -82,7 +82,9 @@ def make_avis_dict(aviser,featDictList,churned,abo_lengde):
         abo_lengde2=np.array(abo_lengde2)
         for feats in featDictList2:
             del feats[avis]
-        avisDict[avis]=[featDictList2,churned2,abo_lengde2]
+        featMat=vecFeats(featDictList2)
+        print(featMat.size,featMat[:,0].size,featMat[0,:].feat)
+        avisDict[avis]=[,churned2,abo_lengde2]
     return avisDict
 
 dVec = DictVectorizer(sparse=False)
@@ -124,7 +126,7 @@ if __name__ == "__main__":
 
     for avis in avisDict:
         print('Avis:',avis)
-        featMat=vecFeats(avis[0])
+        featMat=avis[0]
         churned=avis[1]
         logReg=LogisticRegression(**logRegParams)
         skf = StratifiedKFold(churned, n_folds=4)
