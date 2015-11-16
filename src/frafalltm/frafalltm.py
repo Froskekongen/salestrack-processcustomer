@@ -118,7 +118,6 @@ if __name__ == "__main__":
     abo_lengde=np.array(abo_lengde)
 
     avisDict=make_avis_dict(aviser,featDictList,churned,abo_lengde)
-    skf = StratifiedKFold(churned2, n_folds=4)
     logRegParams={n_jobs:-1,class_weight:'balanced',penalty:'l1',C:0.5}
 
     for avis in avisDict:
