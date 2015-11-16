@@ -83,21 +83,34 @@ def make_avis_dict(aviser,featDictList,churned,abo_lengde):
         for feats in featDictList2:
             del feats[kk]
         #print(featDictList2[0])
-        featMat=vecFeats(featDictList2)
+        featMat,dVec=vecFeats(featDictList2)
         print(avis)
         print(featMat[:,0].size,featMat[0,:].size,churned2.size,abo_lengde2.size)
         print('---------------------------')
-        avisDict[avis]=[featMat,churned2,abo_lengde2]
+        avisDict[avis]=[featMat,churned2,abo_lengde2,dVec]
     return avisDict
 
-dVec = DictVectorizer(sparse=False)
+
 def vecFeats(featDList):
+    dVec = DictVectorizer(sparse=False)
     mm=dVec.fit_transform(featDList)
     mm2=Imputer(missing_values='NaN', strategy='median', axis=0).fit_transform(mm)
     bigInds=np.unique(np.where(mm2>1.1)[1])
     for ind in bigInds:
         mm2[:,ind]=mm2[:,ind]/mm2[:,ind].max()
-    return mm2
+    return mm2,dVec
+
+def getImportantCoeffs(clf,dVec,fun=lambda x:x.coef_[0],topN=7):
+    fnames=vectorizer.get_feature_names()
+    featList=fun(clf)
+    absCoeffs=np.abs(featList)
+    sortedInds=np.argsort(absCoeffs)[::-1][:topN]
+    relImp=featList/absCoeffs.max()
+    topFeats=[]
+    for si in sortedInds:
+        topFeats.append((fnames[si],relImp[si]))
+    return topFeats
+
 
 
 
@@ -130,6 +143,7 @@ if __name__ == "__main__":
     avisDict=make_avis_dict(aviser,featDictList,churned,abo_lengde)
     logRegParams={'n_jobs':-1,'class_weight':'balanced','penalty':'l1','C':0.5}
 
+    topCoeffsAvis={}
     for avis,val in avisDict.items():
         print('Avis:',avis)
         featMat=val[0]
@@ -148,7 +162,12 @@ if __name__ == "__main__":
         logReg.fit(X_train,y_train)
         y_pred=logReg.predict(X_test)
         y_score=logReg.decision_function(X_test)
+        topCoeffsAvis[avis]=getImportantCoeffs(logReg,val[2])
         print(classification_report(y_test,y_pred))
         print(avis)
         print('-------------------------------')
         print()
+    for avis,val in topCoeffsAvis.items():
+        print(avis)
+        print(val)
+        print('------------------')
