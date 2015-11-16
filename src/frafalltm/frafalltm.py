@@ -75,7 +75,7 @@ def make_avis_dict(aviser,featDictList,churned,abo_lengde):
         if not avis:
             continue
         kk='Avis_'+avis
-        featDictList2=[feats for feats in featDictList if avis in feats]
+        featDictList2=[feats for feats in featDictList if kk in feats]
         churned2=[ch for ch,feats in zip(churned,featDictList) if avis in feats]
         churned2=np.array(churned2)
         abo_lengde2=[ch for ch,feats in zip(abo_lengde,featDictList) if avis in feats]
