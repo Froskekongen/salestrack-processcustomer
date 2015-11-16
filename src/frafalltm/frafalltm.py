@@ -81,7 +81,8 @@ def make_avis_dict(aviser,featDictList,churned,abo_lengde):
         abo_lengde2=[ch for ch,feats in zip(abo_lengde,featDictList) if avis in feats]
         abo_lengde2=np.array(abo_lengde2)
         for feats in featDictList2:
-            del feats[avis]
+            del feats[kk]
+        print(featDictList2[0])
         featMat=vecFeats(featDictList2)
         print(featMat.size,featMat[:,0].size,featMat[0,:].feat)
         avisDict[avis]=[featMat,churned2,abo_lengde2]
