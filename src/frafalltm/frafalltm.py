@@ -84,7 +84,7 @@ def make_avis_dict(aviser,featDictList,churned,abo_lengde):
             del feats[avis]
         featMat=vecFeats(featDictList2)
         print(featMat.size,featMat[:,0].size,featMat[0,:].feat)
-        avisDict[avis]=[,churned2,abo_lengde2]
+        avisDict[avis]=[featMat,churned2,abo_lengde2]
     return avisDict
 
 dVec = DictVectorizer(sparse=False)
