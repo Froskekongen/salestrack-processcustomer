@@ -72,6 +72,8 @@ def parse_row(rr,heads):
 def make_avis_dict(aviser,featDictList,churned,abo_lengde):
     avisDict={}
     for avis in aviser:
+        if not avis:
+            continue
         kk='Avis_'+avis
         featDictList2=[feats for feats in featDictList if avis in feats]
         churned2=[ch for ch,feats in zip(churned,featDictList) if avis in feats]
