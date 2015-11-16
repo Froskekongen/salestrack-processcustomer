@@ -162,7 +162,7 @@ if __name__ == "__main__":
         logReg.fit(X_train,y_train)
         y_pred=logReg.predict(X_test)
         y_score=logReg.decision_function(X_test)
-        topCoeffsAvis[avis]=getImportantCoeffs(logReg,val[2])
+        topCoeffsAvis[avis]=getImportantCoeffs(logReg,val[-1])
         print(classification_report(y_test,y_pred))
         print(avis)
         print('-------------------------------')
