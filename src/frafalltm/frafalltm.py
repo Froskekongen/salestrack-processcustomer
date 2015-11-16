@@ -121,11 +121,11 @@ if __name__ == "__main__":
     logRegParams={'n_jobs':-1,'class_weight':'balanced','penalty':'l1','C':0.5}
 
     for avis in avisDict:
+        print(avis)
         featMat=vecFeats(avis[0])
         churned=avis[1]
         logReg=LogisticRegression(**logRegParams)
         skf = StratifiedKFold(churned, n_folds=4)
-        print(avis)
         for train_index,test_index in skf:
                 X_train, X_test = featMat[train_index], featMat[test_index]
                 y_train, y_test = churned[train_index], churned[test_index]
