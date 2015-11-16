@@ -169,7 +169,13 @@ if __name__ == "__main__":
         print(avis)
         print('-------------------------------')
         print()
+
+    bestFeats=Counter()
     for avis,val in topCoeffsAvis.items():
+        for feat,val2 in val:
+            if val2>0.3:
+                bestFeats[feat]+=1
         print(avis)
         print(val)
         print('------------------')
+    print(bestFeats)
