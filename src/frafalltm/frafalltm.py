@@ -121,7 +121,7 @@ if __name__ == "__main__":
     logRegParams={'n_jobs':-1,'class_weight':'balanced','penalty':'l1','C':0.5}
 
     for avis in avisDict:
-        print(avis)
+        print('Avis:',avis)
         featMat=vecFeats(avis[0])
         churned=avis[1]
         logReg=LogisticRegression(**logRegParams)
