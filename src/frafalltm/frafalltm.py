@@ -120,6 +120,9 @@ if __name__ == "__main__":
                 churned.append(predDict['aktiv'])
                 abo_lengde.append(predDict['lengde'])
                 aviser.add(row[6])
+    with open('/mnt/tmsales/aviser.csv',mode='w') as ff:
+        for avis in aviser:
+            ff.write(avis+'\n')
 
     churned=np.array(churned)
     abo_lengde=np.array(abo_lengde)
