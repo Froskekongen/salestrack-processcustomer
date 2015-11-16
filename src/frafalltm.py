@@ -1,4 +1,5 @@
-
+  #!/usr/bin/python3
+  # -*- coding: utf-8 -*-
 
 from collections import defaultdict,Counter
 from sklearn.feature_extraction import DictVectorizer
@@ -18,7 +19,7 @@ import csv
 import datetime
 import numpy as np
 
-def parse_row(rr,heads):
+def parse_row(rr,heads,pn_parser):
     predDict={}
     featDict={}
     def parseDate(tt):
@@ -32,6 +33,10 @@ def parse_row(rr,heads):
     oneHotInds=[3,6,8,9,11,15,19] # 6 tittel, 7 produkt, 14 er kampanjekode,
         #13 er tilbudskode, 16 er postnummer 10 er database
     oneHotList=[heads[ind]+'_'+str(rr[ind]) for ind in oneHotInds]
+    try:
+        oneHotList.append( pn_to_navn[int(row[16])] ) #postnummer
+    except Exception as _:
+        pass
 
     dateInds=[0,1,12]
     for ind in dateInds:
@@ -43,7 +48,7 @@ def parse_row(rr,heads):
         predDict['lengde']=5000 #impute. Not good imputing. For
     else:
         predDict['aktiv']=1
-        predDict['lengde']=(row[1]-row[0]).days
+        predDict['lengde']=(rr[1]-rr[0]).days
 
     ## Getting age (in days)
     try:
@@ -113,11 +118,39 @@ def getImportantCoeffs(clf,dVec,fun=lambda x:x.coef_[0],topN=7):
         topFeats.append((fnames[si],relImp[si]))
     return topFeats
 
+def trainAvis(avisDict,classifier,clfParams):
+    topCoeffsAvis={}
+    for avis,val in avisDict.items():
+        print('Avis:',avis)
+        featMat=val[0]
+        churned=val[1]
+        clf=classifier(**clfParams)
+        skf = StratifiedKFold(churned, n_folds=4)
+        for train_index,test_index in skf:
+                X_train, X_test = featMat[train_index], featMat[test_index]
+                y_train, y_test = churned[train_index], churned[test_index]
+                clf.fit(X_train,y_train)
+                y_pred=clf.predict(X_test)
+                print(classification_report(y_test,y_pred))
 
+        clf=classifier(**clfParams)
+        X_train, X_test, y_train, y_test = train_test_split(featMat, churned, test_size=.2)
+        clf.fit(X_train,y_train)
+        y_pred=clf.predict(X_test)
+        y_score=clf.decision_function(X_test)
+        topCoeffsAvis[avis]=getImportantCoeffs(clf,val[3])
+        avisDict[avis].extend([clf,y_pred,y_score])
+        print(classification_report(y_test,y_pred))
+        print(avis)
+        print('-------------------------------')
+        print()
+    return topCoeffsAvis
 
 
 if __name__ == "__main__":
-    with open('/mnt/tmsales/qlik_tmsales.csv') as ff:
+    parsePost=ParsePostnummer()
+    pn_to_navn=parsePost.pn_to_navn()
+    with open('../data/qlik_tmsales.csv') as ff:
         spamreader = csv.reader(ff, delimiter=',', quotechar='"')
         aviser=set()
         featDictList=[]
@@ -135,40 +168,18 @@ if __name__ == "__main__":
                 churned.append(predDict['aktiv'])
                 abo_lengde.append(predDict['lengde'])
                 aviser.add(row[6])
-    with open('/mnt/tmsales/aviser.csv',mode='w') as ff:
-        for avis in aviser:
-            ff.write(avis+'\n')
+    # with open('/mnt/tmsales/aviser.csv',mode='w') as ff:
+    #     for avis in aviser:
+    #         ff.write(avis+'\n')
 
     churned=np.array(churned)
     abo_lengde=np.array(abo_lengde)
 
     avisDict=make_avis_dict(aviser,featDictList,churned,abo_lengde)
     logRegParams={'n_jobs':-1,'class_weight':'balanced','penalty':'l1','C':0.5}
+    classifier=LogisticRegression
+    topCoeffsAvis=trainAvis(avisDict,classifier,logRegParams)
 
-    topCoeffsAvis={}
-    for avis,val in avisDict.items():
-        print('Avis:',avis)
-        featMat=val[0]
-        churned=val[1]
-        logReg=LogisticRegression(**logRegParams)
-        skf = StratifiedKFold(churned, n_folds=4)
-        for train_index,test_index in skf:
-                X_train, X_test = featMat[train_index], featMat[test_index]
-                y_train, y_test = churned[train_index], churned[test_index]
-                logReg.fit(X_train,y_train)
-                y_pred=logReg.predict(X_test)
-                print(classification_report(y_test,y_pred))
-
-        logReg=LogisticRegression(**logRegParams)
-        X_train, X_test, y_train, y_test = train_test_split(featMat, churned, test_size=.2)
-        logReg.fit(X_train,y_train)
-        y_pred=logReg.predict(X_test)
-        y_score=logReg.decision_function(X_test)
-        topCoeffsAvis[avis]=getImportantCoeffs(logReg,val[-1])
-        print(classification_report(y_test,y_pred))
-        print(avis)
-        print('-------------------------------')
-        print()
 
     bestFeats=Counter()
     worstFeats=Counter()
