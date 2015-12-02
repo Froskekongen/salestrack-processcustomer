@@ -1,5 +1,5 @@
-  #!/usr/bin/python3
-  # -*- coding: utf-8 -*-
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
 
 from collections import defaultdict,Counter
 from sklearn.feature_extraction import DictVectorizer
@@ -19,6 +19,61 @@ import csv
 import datetime
 import numpy as np
 
+
+def custCPO(cust_type,scenario):
+    nykundecpo=[552,879,1131]
+    pkundecpo=[454,577,844]
+    if cust_type=='RESTART':
+        return pkundecpo[scenario]
+    else:
+        return nykundecpo[scenario]
+
+def sub_has_value(sublength,prodprice,normalprice,termin,customercpo):
+    """
+    Easy calculation that says whether a customer is valuable or not.
+    """
+
+    if (termin==12) and (sublength>2):
+        if prodprice>customercpo:
+            return 1
+        else:
+            return 0
+    elif (termin==12) and (sublength<=2):
+        return 0
+    else:
+        betalt=0
+        #antallTerminer=sublength/termin
+        #overTermin=(antallTerminer%1.)*termin
+        tt=sublength
+        if tt>1.5:
+            betalt=prodprice
+        tt-=termin
+        ncost=prodprice
+        while tt>termin:
+            if tt>1.5:
+                #print(betalt,tt)
+                ncost=(ncost+normalprice)/2
+                betalt+=ncost
+            tt-=termin
+        #print(betalt)
+    if betalt>customercpo:
+        return 1
+    else:
+        return 0
+
+def custHasValscen(cust_type,sublength,prodprice,normalprice,termin):
+    hval=[]
+    for iii in range(3):
+        cpo=custCPO(cust_type,iii)
+        hasVal=sub_has_value(sublength,prodprice,normalprice,termin,cpo)
+        hval.append(hasVal)
+    return hval
+
+
+
+
+
+
 def parse_row(rr,heads,pn_parser):
     predDict={}
     featDict={}
@@ -34,21 +89,36 @@ def parse_row(rr,heads,pn_parser):
         #13 er tilbudskode, 16 er postnummer 10 er database
     oneHotList=[heads[ind]+'_'+str(rr[ind]) for ind in oneHotInds]
     try:
-        oneHotList.append( pn_to_navn[int(row[16])] ) #postnummer
-    except Exception as _:
-        pass
+        oneHotList.append( pn_parser[int(rr[16])] ) #postnummer
+    except Exception as e:
+        print('Exception, postnummer:',e)
 
     dateInds=[0,1,12]
     for ind in dateInds:
         rr[ind]=parseDate(rr[ind])
 
     ## Customer churn and (current) length of subscription
+    if rr[1]!='Aktiv':
+        length_of_subs=(rr[1]-rr[0]).days/30.4 #length in months
+        ppsalg=float(rr[17].replace(',','.'))
+        npris=float(rr[18].replace(',','.'))
+        cType=rr[3]
+        termin=float(rr[19])
+        hval=custHasValscen(cType,length_of_subs,ppsalg,npris,termin)
+        #print(cType,length_of_subs,length_of_subs*30.4,ppsalg,npris,termin)
+        #print(hval)
+        #print(predDict)
+        predDict['CPO']=hval
+        #input()
+
     if rr[1]=='Aktiv':
-        predDict['aktiv']=0
+        predDict['churned']=0
         predDict['lengde']=5000 #impute. Not good imputing. For
+        predDict['CPO']=[1,1,1]
     else:
-        predDict['aktiv']=1
-        predDict['lengde']=(rr[1]-rr[0]).days
+        predDict['churned']=1
+        predDict['lengde']=length_of_subs
+
 
     ## Getting age (in days)
     try:
@@ -74,27 +144,59 @@ def parse_row(rr,heads,pn_parser):
 
     return featDict,predDict
 
-def make_avis_dict(aviser,featDictList,churned,abo_lengde):
+
+
+
+def make_avis_dict(aviser,featDictList,predDictList):
     avisDict={}
+    featDictListTotal=[]
+    predTotalCreated=False
     for avis in aviser:
         if not avis:
             continue
         kk='Avis_'+avis
         featDictList2=[feats for feats in featDictList if kk in feats]
-        if len(featDictList2)<50:
-            continue
-        churned2=[ch for ch,feats in zip(churned,featDictList) if kk in feats]
-        churned2=np.array(churned2)
-        abo_lengde2=[ch for ch,feats in zip(abo_lengde,featDictList) if kk in feats]
-        abo_lengde2=np.array(abo_lengde2)
+        predDictList2=[preds for preds,feats in zip(predDictList,featDictList) if kk in feats]
+        # if len(featDictList2)<50:
+        #     continue
+
+        predDict=defaultdict(list)
+        for preds,feats in zip(predDictList,featDictList):
+            if kk in feats:
+                for pkey,pval in preds.items():
+                    predDict[pkey].append(pval)
+        for pkey,pvals in predDict.items():
+            predDict[pkey]=np.array(pvals)
+
+
+
         for feats in featDictList2:
             del feats[kk]
         #print(featDictList2[0])
         featMat,dVec=vecFeats(featDictList2)
         print(avis)
-        print(featMat[:,0].size,featMat[0,:].size,churned2.size,abo_lengde2.size)
+        print(featMat.shape)
+        print(predDict['lengde'].shape,predDict['churned'].shape,predDict['CPO'].shape)
+        if ( (featMat[:,0].size/featMat[0,:].size)<3. ):
+            print(avis,'has too few features',(featMat[:,0].size/featMat[0,:].size))
+            continue
         print('---------------------------')
-        avisDict[avis]=[featMat,churned2,abo_lengde2,dVec]
+
+
+        avisDict[avis]=[featMat,predDict,dVec]
+        featDictListTotal.extend(featDictList2)
+        # if not predTotalCreated:
+        #     predDictTotal=predDict
+        #     predTotalCreated=True
+        # else:
+        #     for pkey,pvals in predDict.items():
+        #         if len(pvals.shape)==1:
+        #             predDictTotal[pkey]=np.concatenate([predDictTotal[pkey],pvals])
+        #         else:
+        #             predDictTotal[pkey]=np.vstack([predDictTotal[pkey],pvals])
+
+    # featMat,dVec=vecFeats(featDictListTotal)
+    # avisDict['TOTAL']=[featMat,predDictTotal,dVec]
     return avisDict
 
 
@@ -107,7 +209,7 @@ def vecFeats(featDList):
         mm2[:,ind]=mm2[:,ind]/mm2[:,ind].max()
     return mm2,dVec
 
-def getImportantCoeffs(clf,dVec,fun=lambda x:x.coef_[0],topN=7):
+def getImportantCoeffs(clf,dVec,fun=lambda x:x.coef_[0],topN=10):
     fnames=dVec.get_feature_names()
     featList=fun(clf)
     absCoeffs=np.abs(featList)
@@ -115,82 +217,50 @@ def getImportantCoeffs(clf,dVec,fun=lambda x:x.coef_[0],topN=7):
     relImp=featList/absCoeffs.max()
     topFeats=[]
     for si in sortedInds:
-        topFeats.append((fnames[si],relImp[si]))
+        if np.abs(relImp[si])>0.2:
+            topFeats.append((fnames[si],relImp[si]))
     return topFeats
 
-def trainAvis(avisDict,classifier,clfParams):
-    topCoeffsAvis={}
-    for avis,val in avisDict.items():
-        print('Avis:',avis)
-        featMat=val[0]
-        churned=val[1]
-        clf=classifier(**clfParams)
-        skf = StratifiedKFold(churned, n_folds=4)
-        for train_index,test_index in skf:
-                X_train, X_test = featMat[train_index], featMat[test_index]
-                y_train, y_test = churned[train_index], churned[test_index]
-                clf.fit(X_train,y_train)
-                y_pred=clf.predict(X_test)
-                print(classification_report(y_test,y_pred))
+def trainAvis(avis,avisDict,topCoeffsAvis,classifier,clfParams,toPred,baseInd=2):
 
-        clf=classifier(**clfParams)
-        X_train, X_test, y_train, y_test = train_test_split(featMat, churned, test_size=.2)
-        clf.fit(X_train,y_train)
-        y_pred=clf.predict(X_test)
-        y_score=clf.decision_function(X_test)
-        topCoeffsAvis[avis]=getImportantCoeffs(clf,val[3])
-        avisDict[avis].extend([clf,y_pred,y_score])
-        print(classification_report(y_test,y_pred))
-        print(avis)
-        print('-------------------------------')
-        print()
-    return topCoeffsAvis
+    val=avisDict[avis]
+    print('Avis:',avis)
+    featMat=val[0]
+    prints=[(key,v.shape) for key,v in val[1].items()]
+
+    featVectorizer=val[2]
+
+    predVals=val[1][toPred]
+    if toPred=='CPO':
+        predVals=predVals[:,baseInd]
+
+    print(toPred,predVals.shape,prints)
+    #input()
+
+    # skf = StratifiedKFold(predVals, n_folds=4)
+    # for train_index,test_index in skf:
+    #     clf=classifier(**clfParams)
+    #     X_train, X_test = featMat[train_index], featMat[test_index]
+    #     y_train, y_test = predVals[train_index], predVals[test_index]
+    #     clf.fit(X_train,y_train)
+    #     y_pred=clf.predict(X_test)
+    #     print(classification_report(y_test,y_pred))
+
+    clf=classifier(**clfParams)
+    X_train, X_test, y_train, y_test = train_test_split(featMat, predVals, test_size=.2)
+    clf.fit(X_train,y_train)
+    y_pred=clf.predict(X_test)
+    y_score=clf.decision_function(X_test)
+    topCoeffsAvis[avis]=getImportantCoeffs(clf,featVectorizer)
+    classifierProperties={'classifier':clf,'y_score':y_score,'y_pred':y_pred,'y_true':y_test,\
+        'roc_curve':metrics.roc_curve(y_test,y_score),'prec_recall':metrics.precision_recall_curve(y_test,y_score)}
+    avisDict[avis].append(classifierProperties)
+    print(classification_report(y_test,y_pred))
+    print(topCoeffsAvis[avis])
+    print('-------------------------------')
+    print()
 
 
 if __name__ == "__main__":
-    parsePost=ParsePostnummer()
-    pn_to_navn=parsePost.pn_to_navn()
-    with open('../data/qlik_tmsales.csv') as ff:
-        spamreader = csv.reader(ff, delimiter=',', quotechar='"')
-        aviser=set()
-        featDictList=[]
-        churned=[]
-        abo_lengde=[]
-        for iii,row in enumerate(spamreader):
-            if iii==0:
-                heads=row
-                row=[(iii,r) for r in enumerate(row)]
-            if iii>2:
-                if row[11]=='G: 100 %':
-                    continue
-                featDict,predDict=parse_row(row,heads)
-                featDictList.append(featDict)
-                churned.append(predDict['aktiv'])
-                abo_lengde.append(predDict['lengde'])
-                aviser.add(row[6])
-    # with open('/mnt/tmsales/aviser.csv',mode='w') as ff:
-    #     for avis in aviser:
-    #         ff.write(avis+'\n')
-
-    churned=np.array(churned)
-    abo_lengde=np.array(abo_lengde)
-
-    avisDict=make_avis_dict(aviser,featDictList,churned,abo_lengde)
-    logRegParams={'n_jobs':-1,'class_weight':'balanced','penalty':'l1','C':0.5}
-    classifier=LogisticRegression
-    topCoeffsAvis=trainAvis(avisDict,classifier,logRegParams)
-
-
-    bestFeats=Counter()
-    worstFeats=Counter()
-    for avis,val in topCoeffsAvis.items():
-        for feat,val2 in val:
-            if val2>0.3:
-                bestFeats[feat]+=1
-            if val2<0.3:
-                worstFeats[feat]+=1
-        print(avis)
-        print(val)
-        print('------------------')
-    print(bestFeats)
-    print(worstFeats)
+    print(9.4,225,234,1,800,8*225,8*234)
+    sub_has_value(9.4,225,234,1,800)
